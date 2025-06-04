@@ -4,61 +4,53 @@
 import React, { useEffect, useState } from 'react';
 import { Service } from '@/types/service';
 import ServiceStatusCard from './ServiceStatusCard';
-import serviceStatusNotifier, { Observer } from '@/lib/ServiceStatusNotifier'; // Імпорт
+import serviceStatusNotifier, { Observer } from '@/lib/ServiceStatusNotifier';
 
 const Dashboard: React.FC = () => {
-  const [services, setServices] = useState<Service[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true); // Початкове завантаження
-  const [error, setError] = useState<string | null>(null); // Поки не використовуємо для помилок з Notifier
+  // Використовуємо початковий стан з Notifier, якщо він вже має дані
+  const [services, setServices] = useState<Service[]>(serviceStatusNotifier.currentServices);
+  // isLoading тепер залежить від того, чи були вже дані завантажені Notifier-ом
+  const [isLoading, setIsLoading] = useState<boolean>(!serviceStatusNotifier.hasFetchedOnce && serviceStatusNotifier.currentServices.length === 0);
+  const [error, setError] = useState<string | null>(null); // Поки не обробляємо помилки від Notifier
 
   useEffect(() => {
-    // Створюємо об'єкт спостерігача
     const observer: Observer = {
       update: (updatedServices: Service[]) => {
         setServices(updatedServices);
-        if (isLoading) setIsLoading(false); // Вимикаємо індикатор завантаження після першого отримання даних
-        // console.log('Dashboard updated with new services:', updatedServices);
-      }
+        if (isLoading) setIsLoading(false); // Вимикаємо індикатор, якщо він був активний
+        setError(null); // Скидаємо помилку, якщо дані прийшли
+      },
+      // onError: (fetchError: Error) => { // Можна буде додати обробку помилок
+      //   setError(fetchError.message || 'Помилка оновлення даних');
+      //   setIsLoading(false); // Також вимкнути завантаження при помилці
+      // }
     };
 
     serviceStatusNotifier.subscribe(observer);
-    // Запускаємо періодичне опитування, якщо воно ще не запущене
-    // (Singleton гарантує, що startPolling не викличеться багато разів, якщо вже запущено)
-    // Але для першого завантаження краще викликати fetchStatuses з Notifier
-    if (serviceStatusNotifier['services'] && serviceStatusNotifier['services'].length === 0 && !serviceStatusNotifier['fetching']) {
-      // Якщо сервісів ще немає і не йде запит, ініціюємо перший запит
-      serviceStatusNotifier.fetchStatuses().then(() => {
-          if (isLoading) setIsLoading(false);
-      }).catch(e => {
-          console.error("Initial fetch error from Dashboard:", e);
-          setError("Не вдалося завантажити початкові дані");
-          if (isLoading) setIsLoading(false);
-      });
-    } else {
-        // Якщо дані вже є або йде запит, просто оновлюємо з кешу або чекаємо
-        if (serviceStatusNotifier['services'] && serviceStatusNotifier['services'].length > 0) {
-            setServices(serviceStatusNotifier['services']);
-            if (isLoading) setIsLoading(false);
-        }
-    }
-    
-    // Запускаємо polling (Notifier сам подбає, щоб не було дублів інтервалу)
-    serviceStatusNotifier.startPolling(10000); // Оновлювати кожні 10 секунд
+    serviceStatusNotifier.startPolling(10000); // Запускаємо/підтверджуємо polling
 
-    // Функція очищення для відписки при демонтуванні компонента
+    // Якщо на момент підписки даних немає і Notifier не завантажує їх,
+    // і ще не було першого завантаження, то setIsLoading(true)
+    // Ця логіка вже частково покрита ініціалізацією useState вище.
+    // Можна перевірити ще раз:
+    if (serviceStatusNotifier.currentServices.length === 0 && !serviceStatusNotifier.isFetching && !serviceStatusNotifier.hasFetchedOnce) {
+        setIsLoading(true);
+        // Notifier сам повинен ініціювати fetch при subscribe або startPolling, якщо потрібно
+    }
+
+
     return () => {
       serviceStatusNotifier.unsubscribe(observer);
-      // Можна додати логіку зупинки polling, якщо це останній спостерігач,
-      // але для простоти наш Singleton буде продовжувати працювати.
-      // Якщо потрібно зупиняти:
-      // if (serviceStatusNotifier['observers'].length === 0) {
+      // Зазвичай не зупиняємо polling, якщо можуть бути інші спостерігачі
+      // або якщо додаток завжди має тримати дані актуальними.
+      // Якщо треба зупиняти:
+      // if (serviceStatusNotifier['observers'].length === 0) { // Потрібно буде зробити observers публічним або додати метод
       //   serviceStatusNotifier.stopPolling();
       // }
     };
-  }, [isLoading]); // Залежність від isLoading, щоб коректно вимкнути його
+  }, [isLoading]); // Залишаємо isLoading тут для коректного вимкнення
 
-  // Початковий стан завантаження, поки перші дані не прийшли від Notifier
-  if (isLoading && services.length === 0 && !error) {
+  if (isLoading) {
     return <div className="text-center py-10">Завантаження статусів...</div>;
   }
 
@@ -66,7 +58,7 @@ const Dashboard: React.FC = () => {
     return <div className="text-center py-10 text-red-500">Помилка: {error}</div>;
   }
 
-  if (services.length === 0 && !isLoading) { // Якщо не завантажується і сервісів немає
+  if (services.length === 0) { // Не додаємо !isLoading, бо стан помилки вже оброблено
     return <div className="text-center py-10">Немає сервісів для відображення.</div>;
   }
 
