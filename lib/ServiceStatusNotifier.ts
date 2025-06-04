@@ -4,7 +4,6 @@ import { Service } from '@/types/service';
 
 export interface Observer {
   update(services: Service[]): void;
-  // Можна додати для помилок пізніше: onError?(error: Error): void;
 }
 
 class ServiceStatusNotifier {
@@ -19,18 +18,12 @@ class ServiceStatusNotifier {
     if (this.services.length > 0) {
       observer.update(this.services);
     } else if (!this.fetching && !this.initialFetchDone) {
-      // Якщо даних немає, не йде запит і початковий запит ще не був зроблений, ініціюємо
-      // Це допоможе, якщо компонент підписується до того, як polling стартував
       this.fetchStatuses();
     }
   }
 
   public unsubscribe(observer: Observer): void {
     this.observers = this.observers.filter(obs => obs !== observer);
-    // Якщо спостерігачів не залишилося, можна зупинити polling
-    // if (this.observers.length === 0) {
-    //   this.stopPolling();
-    // }
   }
 
   private notifyObservers(): void {
@@ -47,19 +40,8 @@ class ServiceStatusNotifier {
       this.services = newServices; // Завжди оновлюємо кеш
       this.initialFetchDone = true; // Позначаємо, що хоча б один запит був успішним
       this.notifyObservers(); // Сповіщаємо, навіть якщо дані ті ж самі (для першого завантаження)
-                               // Або можна додати стару перевірку:
-                               // if (JSON.stringify(newServices) !== JSON.stringify(this.services)) {
-                               //   this.services = newServices;
-                               //   this.notifyObservers();
-                               // } else if (!this.initialFetchDone) {
-                               //   // Для першого завантаження, якщо дані не змінилися, але треба сповістити
-                               //   this.services = newServices; // переконатися, що кеш оновлений
-                               //   this.notifyObservers();
-                               // }
     } catch (error) {
       console.error('Failed to fetch service statuses (Notifier):', error);
-      // Тут можна буде сповіщати спостерігачів про помилку
-      // this.observers.forEach(obs => obs.onError?.(error as Error));
     } finally {
       this.fetching = false;
     }
@@ -67,13 +49,9 @@ class ServiceStatusNotifier {
 
   public startPolling(intervalMs: number = 10000): void { // Змінив дефолтний інтервал на 10с
     if (this.intervalId) {
-      // Polling вже запущено, нічого не робимо або перезапускаємо, якщо треба змінити інтервал
-      // Для простоти поки що, якщо вже є, не чіпаємо.
-      // Якщо треба змінювати інтервал: this.stopPolling();
       return;
     }
 
-    // Запускаємо перший запит негайно, якщо ще не було зроблено
     if (!this.initialFetchDone && !this.fetching) {
       this.fetchStatuses();
     }
@@ -93,7 +71,6 @@ class ServiceStatusNotifier {
     }
   }
 
-  // Додамо getter для перевірки стану (може знадобитися Dashboard)
   public get currentServices(): Service[] {
     return [...this.services]; // Повертаємо копію
   }

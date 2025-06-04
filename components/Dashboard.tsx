@@ -20,19 +20,10 @@ const Dashboard: React.FC = () => {
         if (isLoading) setIsLoading(false); // Вимикаємо індикатор, якщо він був активний
         setError(null); // Скидаємо помилку, якщо дані прийшли
       },
-      // onError: (fetchError: Error) => { // Можна буде додати обробку помилок
-      //   setError(fetchError.message || 'Помилка оновлення даних');
-      //   setIsLoading(false); // Також вимкнути завантаження при помилці
-      // }
     };
 
     serviceStatusNotifier.subscribe(observer);
     serviceStatusNotifier.startPolling(10000); // Запускаємо/підтверджуємо polling
-
-    // Якщо на момент підписки даних немає і Notifier не завантажує їх,
-    // і ще не було першого завантаження, то setIsLoading(true)
-    // Ця логіка вже частково покрита ініціалізацією useState вище.
-    // Можна перевірити ще раз:
     if (serviceStatusNotifier.currentServices.length === 0 && !serviceStatusNotifier.isFetching && !serviceStatusNotifier.hasFetchedOnce) {
         setIsLoading(true);
         // Notifier сам повинен ініціювати fetch при subscribe або startPolling, якщо потрібно
@@ -41,12 +32,6 @@ const Dashboard: React.FC = () => {
 
     return () => {
       serviceStatusNotifier.unsubscribe(observer);
-      // Зазвичай не зупиняємо polling, якщо можуть бути інші спостерігачі
-      // або якщо додаток завжди має тримати дані актуальними.
-      // Якщо треба зупиняти:
-      // if (serviceStatusNotifier['observers'].length === 0) { // Потрібно буде зробити observers публічним або додати метод
-      //   serviceStatusNotifier.stopPolling();
-      // }
     };
   }, [isLoading]); // Залишаємо isLoading тут для коректного вимкнення
 

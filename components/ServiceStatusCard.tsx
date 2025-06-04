@@ -7,7 +7,6 @@ interface ServiceStatusCardProps {
 }
 
 const ServiceStatusCard: React.FC<ServiceStatusCardProps> = ({ service }) => {
-  // Функція для визначення кольору картки залежно від статусу
   const getStatusColor = (status: Service['status']) => {
     switch (status) {
       case 'OK':
@@ -20,7 +19,7 @@ const ServiceStatusCard: React.FC<ServiceStatusCardProps> = ({ service }) => {
         return 'bg-gray-100 border-gray-500 text-gray-700';
     }
   };
-
+  
   return (
     <div
       className={`p-4 border rounded-lg shadow-md ${getStatusColor(service.status)}`}
